@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>건의하기 · 학교 건의함</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="nav-root"></div>
+
+  <div class="topbar with-nav">
+    <button class="hamburger-btn" onclick="openNav()">☰</button>
+    <div class="brand"><span class="seal">함</span>건의하기</div>
+    <div class="session" id="session-info"></div>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow">Suggestion</p>
+    <h1 class="title">건의사항을 남겨주세요</h1>
+    <p class="sub">작성한 내용은 <strong>관리자만</strong> 확인할 수 있어요. 학교생활에서 개선되었으면 하는 점을 편하게 적어주세요.</p>
+
+    <form id="suggestion-form" onsubmit="handleSubmit(event)">
+      <label for="content">건의 내용</label>
+      <textarea id="content" required placeholder="예) 3층 화장실 손 건조기가 고장난 지 오래됐어요."></textarea>
+      <button type="submit" class="btn-seal" id="submit-btn">
+        <span>제출하기</span>
+      </button>
+    </form>
+    <div id="notice"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    let currentUser = null;
+
+    function showNotice(message, type) {
+      document.getElementById('notice').innerHTML = `<div class="notice ${type}">${message}</div>`;
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      const textarea = document.getElementById('content');
+      btn.disabled = true;
+
+      const { error } = await supabaseClient.from('suggestions').insert({
+        user_id: currentUser.id,
+        content: textarea.value.trim()
+      });
+
+      btn.disabled = false;
+      btn.classList.add('stamped');
+      setTimeout(() => btn.classList.remove('stamped'), 350);
+
+      if (error) {
+        showNotice('제출에 실패했어요: ' + error.message, 'err');
+        return;
+      }
+      textarea.value = '';
+      showNotice('건의사항이 접수됐어요. "내 건의사항" 메뉴에서 처리 현황을 확인할 수 있어요.', 'ok');
+    }
+
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) { window.location.href = 'login.html'; return; }
+      currentUser = session.user;
+
+      const { data: profile } = await supabaseClient
+        .from('profiles').select('role').eq('id', currentUser.id).single();
+      const isAdmin = profile && profile.role === 'admin';
+
+      document.getElementById('session-info').innerHTML = currentUser.email;
+      renderNav('write', isAdmin);
+    })();
+  </script>
+</body>
+</html>
