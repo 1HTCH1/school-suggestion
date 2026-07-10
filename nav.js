@@ -5,6 +5,7 @@
 
 function renderNav(activeKey, isAdmin) {
   const items = [
+    { key: 'home', href: 'index.html', label: '홈' },
     { key: 'write', href: 'write.html', label: '건의하기' },
     { key: 'my', href: 'my.html', label: '내 건의사항 · 처리현황' },
     { key: 'board', href: 'board.html', label: '반영사례 게시판' },
@@ -20,7 +21,7 @@ function renderNav(activeKey, isAdmin) {
   const drawerHtml = `
     <div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
     <div class="nav-drawer" id="nav-drawer">
-      <div class="drawer-brand"><span class="seal">함</span>한국나노마이스터고 건의함</div>
+      <div class="drawer-brand">${logoHtml()}한국나노마이스터고 건의함</div>
       ${linksHtml}
       <hr class="drawer-divider" />
       <div class="drawer-footer">
@@ -30,6 +31,11 @@ function renderNav(activeKey, isAdmin) {
   `;
 
   document.getElementById('nav-root').innerHTML = drawerHtml;
+}
+
+// 로고 이미지(logo.png)가 있으면 보여주고, 없으면 기존 텍스트 씰로 대체
+function logoHtml() {
+  return `<img src="logo.png" alt="로고" class="logo-img" onerror="this.outerHTML='<span class=&quot;seal&quot;>함</span>'" />`;
 }
 
 function openNav() {
