@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>내 건의사항 · 학교 건의함</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="nav-root"></div>
+
+  <div class="topbar with-nav">
+    <button class="hamburger-btn" onclick="openNav()">☰</button>
+    <div class="brand"><span class="seal">함</span>내 건의사항</div>
+    <div class="session" id="session-info"></div>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow">My History</p>
+    <h1 class="title">내가 남긴 건의사항 · 처리현황</h1>
+    <p class="sub">제출한 건의사항의 처리 상태를 확인할 수 있어요. 관리자가 남긴 답변은 상태가 바뀐 뒤 표시돼요.</p>
+    <hr class="divider" style="margin:20px 0;" />
+    <ul class="entry-list" id="my-list"></ul>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    function fmtDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    async function loadMySuggestions() {
+      const { data, error } = await supabaseClient
+        .from('suggestions')
+        .select('id, content, status, admin_reply, created_at')
+        .order('created_at', { ascending: false });
+
+      const list = document.getElementById('my-list');
+      if (error) {
+        list.innerHTML = `<li class="empty-state">불러오지 못했어요: ${error.message}</li>`;
+        return;
+      }
+      if (!data.length) {
+        list.innerHTML = `<li class="empty-state">아직 남긴 건의사항이 없어요.</li>`;
+        return;
+      }
+      list.innerHTML = data.map(item => `
+        <li>
+          <div class="entry-meta">
+            ${fmtDate(item.created_at)}
+            <span class="status-pill status-${item.status}">${item.status}</span>
+          </div>
+          <div class="entry-text">${escapeHtml(item.content)}</div>
+          ${item.admin_reply ? `<div class="admin-reply-box"><span class="label">관리자 답변</span>${escapeHtml(item.admin_reply)}</div>` : ''}
+        </li>
+      `).join('');
+    }
+
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) { window.location.href = 'login.html'; return; }
+
+      const { data: profile } = await supabaseClient
+        .from('profiles').select('role').eq('id', session.user.id).single();
+      const isAdmin = profile && profile.role === 'admin';
+
+      document.getElementById('session-info').innerHTML = session.user.email;
+      renderNav('my', isAdmin);
+      loadMySuggestions();
+    })();
+  </script>
+</body>
+</html>
