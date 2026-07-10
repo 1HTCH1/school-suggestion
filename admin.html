@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>관리자 · 학교 건의함</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  .admin-item { padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .admin-item:last-child { border-bottom: none; }
+  .admin-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: flex-start; }
+  .admin-controls select { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); font-family: inherit; font-size: 0.85rem; }
+  .admin-controls textarea { flex: 1 1 100%; min-height: 64px; }
+  .admin-controls .public-check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--ink-navy-deep); }
+  .admin-controls .save-btn {
+    background: var(--ink-navy-deep); color: var(--brass-soft); border: none; padding: 9px 18px;
+    border-radius: 999px; font-size: 0.83rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .admin-controls .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .author-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--sage); }
+</style>
+</head>
+<body>
+
+  <div id="nav-root"></div>
+
+  <div class="topbar with-nav">
+    <button class="hamburger-btn" onclick="openNav()">☰</button>
+    <div class="brand"><span class="seal">함</span>관리자<span class="admin-badge">ADMIN</span></div>
+    <div class="session" id="session-info"></div>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow">Admin Only</p>
+    <h1 class="title">접수된 건의사항 관리</h1>
+    <p class="sub">상태를 바꾸고 답변을 남길 수 있어요. "공개"에 체크하면 반영사례 게시판에 (작성자 정보 없이) 노출돼요.</p>
+    <div id="access-notice"></div>
+    <hr class="divider" />
+    <div id="all-list"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    function fmtDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    const STATUSES = ['접수', '검토중', '반영완료', '반려'];
+
+    async function loadAll() {
+      const { data, error } = await supabaseClient
+        .from('suggestions')
+        .select('id, content, status, admin_reply, is_public, created_at, profiles(email)')
+        .order('created_at', { ascending: false });
+
+      const list = document.getElementById('all-list');
+      if (error) {
+        list.innerHTML = `<div class="empty-state">불러오지 못했어요: ${error.message}</div>`;
+        return;
+      }
+      if (!data.length) {
+        list.innerHTML = `<div class="empty-state">아직 접수된 건의사항이 없어요.</div>`;
+        return;
+      }
+
+      list.innerHTML = data.map(item => `
+        <div class="admin-item" data-id="${item.id}">
+          <div class="entry-meta">
+            ${fmtDate(item.created_at)}
+            <span class="status-pill status-${item.status}">${item.status}</span>
+            <span class="author-tag">${item.profiles ? escapeHtml(item.profiles.email) : '알 수 없음'}</span>
+          </div>
+          <div class="entry-text">${escapeHtml(item.content)}</div>
+          <div class="admin-controls">
+            <select class="status-select">
+              ${STATUSES.map(s => `<option value="${s}" ${s === item.status ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+            <label class="public-check">
+              <input type="checkbox" class="public-check-input" ${item.is_public ? 'checked' : ''} />
+              반영사례로 공개
+            </label>
+            <textarea class="reply-input" placeholder="학생에게 보여줄 답변/처리 내용을 적어주세요 (선택)">${item.admin_reply ? escapeHtml(item.admin_reply) : ''}</textarea>
+            <button class="save-btn" onclick="saveItem('${item.id}', this)">저장</button>
+          </div>
+          <div class="notice" style="display:none;"></div>
+        </div>
+      `).join('');
+    }
+
+    async function saveItem(id, btn) {
+      const wrapper = btn.closest('.admin-item');
+      const status = wrapper.querySelector('.status-select').value;
+      const isPublic = wrapper.querySelector('.public-check-input').checked;
+      const reply = wrapper.querySelector('.reply-input').value.trim();
+      const noticeEl = wrapper.querySelector('.notice');
+
+      btn.disabled = true;
+      const { error } = await supabaseClient
+        .from('suggestions')
+        .update({ status, is_public: isPublic, admin_reply: reply || null, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      btn.disabled = false;
+
+      noticeEl.style.display = 'block';
+      if (error) {
+        noticeEl.className = 'notice err';
+        noticeEl.textContent = '저장 실패: ' + error.message;
+      } else {
+        noticeEl.className = 'notice ok';
+        noticeEl.textContent = '저장됐어요.';
+        wrapper.querySelector('.status-pill').className = `status-pill status-${status}`;
+        wrapper.querySelector('.status-pill').textContent = status;
+        setTimeout(() => { noticeEl.style.display = 'none'; }, 2000);
+      }
+    }
+
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) { window.location.href = 'login.html'; return; }
+
+      document.getElementById('session-info').innerHTML = session.user.email;
+
+      const { data: profile, error: pErr } = await supabaseClient
+        .from('profiles').select('role').eq('id', session.user.id).single();
+
+      const isAdmin = !pErr && profile && profile.role === 'admin';
+      renderNav('admin', isAdmin);
+
+      if (!isAdmin) {
+        document.getElementById('access-notice').innerHTML =
+          `<div class="notice err">이 페이지는 관리자만 볼 수 있어요. 관리자 권한이 없습니다.</div>`;
+        return;
+      }
+      loadAll();
+    })();
+  </script>
+</body>
+</html>
