@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>한국나노마이스터고 건의함</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand"><span class="seal">함</span>한국나노마이스터고 건의함</div>
+    <div class="session"><a href="login.html" style="color:var(--paper); text-decoration:none; border:1px solid rgba(246,243,234,0.35); padding:7px 14px; border-radius:6px; font-size:0.85rem;">로그인</a></div>
+  </div>
+
+  <div class="landing-hero">
+    <p class="eyebrow">Suggestion Box</p>
+    <h1 class="title">우리 학교를 바꾸는 한마디</h1>
+    <p class="sub">건의사항은 관리자만 확인해요. 편하게 남겨주시면 처리 현황과 실제 반영된 내용을 확인하실 수 있어요.</p>
+
+    <div class="role-cards">
+      <a class="role-card" href="login.html">
+        <span class="role-label">학생</span>
+        <span class="role-arrow">바로가기 »</span>
+      </a>
+      <a class="role-card" href="login.html">
+        <span class="role-label">관리자</span>
+        <span class="role-arrow">바로가기 »</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow">Board</p>
+    <h1 class="title" style="font-size:1.2rem;">최근 반영사례</h1>
+    <p class="sub" style="margin-bottom:16px;">건의 주신 내용 중 실제로 반영된 사례예요.</p>
+    <hr class="divider" style="margin:0 0 18px;" />
+    <ul class="entry-list" id="preview-list"></ul>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    function fmtDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    async function loadPreview() {
+      const { data, error } = await supabaseClient
+        .from('suggestions')
+        .select('id, content, admin_reply, created_at')
+        .eq('is_public', true)
+        .order('updated_at', { ascending: false })
+        .limit(4);
+
+      const list = document.getElementById('preview-list');
+      if (error || !data || !data.length) {
+        list.innerHTML = `<li class="empty-state">아직 공개된 반영사례가 없어요.</li>`;
+        return;
+      }
+      list.innerHTML = data.map(item => `
+        <li>
+          <div class="entry-meta">${fmtDate(item.created_at)} <span class="status-pill status-반영완료">반영완료</span></div>
+          <div class="entry-text">${escapeHtml(item.content)}</div>
+          ${item.admin_reply ? `<div class="admin-reply-box"><span class="label">처리 내용</span>${escapeHtml(item.admin_reply)}</div>` : ''}
+        </li>
+      `).join('');
+    }
+
+    loadPreview();
+  </script>
+</body>
+</html>
