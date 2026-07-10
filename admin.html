@@ -26,7 +26,7 @@
 
   <div class="topbar with-nav">
     <button class="hamburger-btn" onclick="openNav()">☰</button>
-    <div class="brand"><span class="seal">함</span>관리자<span class="admin-badge">ADMIN</span></div>
+    <a class="brand" href="index.html" style="text-decoration:none;"><img src="logo.png" alt="로고" class="logo-img" onerror="this.outerHTML='<span class=&quot;seal&quot;>함</span>'" />관리자<span class="admin-badge">ADMIN</span></a>
     <div class="session" id="session-info"></div>
   </div>
 
@@ -89,6 +89,7 @@
             </label>
             <textarea class="reply-input" placeholder="학생에게 보여줄 답변/처리 내용을 적어주세요 (선택)">${item.admin_reply ? escapeHtml(item.admin_reply) : ''}</textarea>
             <button class="save-btn" onclick="saveItem('${item.id}', this)">저장</button>
+            <button class="save-btn" style="background:var(--rose); color:#fff;" onclick="deleteItem('${item.id}', this)">삭제</button>
           </div>
           <div class="notice" style="display:none;"></div>
         </div>
@@ -120,6 +121,18 @@
         wrapper.querySelector('.status-pill').textContent = status;
         setTimeout(() => { noticeEl.style.display = 'none'; }, 2000);
       }
+    }
+
+    async function deleteItem(id, btn) {
+      if (!confirm('이 건의사항을 삭제할까요? 되돌릴 수 없어요.')) return;
+      btn.disabled = true;
+      const { error } = await supabaseClient.from('suggestions').delete().eq('id', id);
+      if (error) {
+        alert('삭제 실패: ' + error.message);
+        btn.disabled = false;
+        return;
+      }
+      btn.closest('.admin-item').remove();
     }
 
     (async () => {
