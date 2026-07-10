@@ -12,7 +12,7 @@
 
   <div class="topbar with-nav">
     <button class="hamburger-btn" onclick="openNav()">☰</button>
-    <div class="brand"><span class="seal">함</span>내 건의사항</div>
+    <a class="brand" href="index.html" style="text-decoration:none;"><img src="logo.png" alt="로고" class="logo-img" onerror="this.outerHTML='<span class=&quot;seal&quot;>함</span>'" />내 건의사항</a>
     <div class="session" id="session-info"></div>
   </div>
 
@@ -20,6 +20,7 @@
     <p class="eyebrow">My History</p>
     <h1 class="title">내가 남긴 건의사항 · 처리현황</h1>
     <p class="sub">제출한 건의사항의 처리 상태를 확인할 수 있어요. 관리자가 남긴 답변은 상태가 바뀐 뒤 표시돼요.</p>
+    <div id="notice"></div>
     <hr class="divider" style="margin:20px 0;" />
     <ul class="entry-list" id="my-list"></ul>
   </div>
@@ -28,6 +29,10 @@
   <script src="config.js"></script>
   <script src="nav.js"></script>
   <script>
+    function showNotice(message, type) {
+      document.getElementById('notice').innerHTML = `<div class="notice ${type}">${message}</div>`;
+    }
+
     function fmtDate(iso) {
       const d = new Date(iso);
       return d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -54,15 +59,70 @@
         return;
       }
       list.innerHTML = data.map(item => `
-        <li>
+        <li data-id="${item.id}">
           <div class="entry-meta">
             ${fmtDate(item.created_at)}
             <span class="status-pill status-${item.status}">${item.status}</span>
           </div>
-          <div class="entry-text">${escapeHtml(item.content)}</div>
+          <div class="entry-text view-mode">${escapeHtml(item.content)}</div>
           ${item.admin_reply ? `<div class="admin-reply-box"><span class="label">관리자 답변</span>${escapeHtml(item.admin_reply)}</div>` : ''}
+          <div class="item-actions view-mode">
+            <button onclick="toggleEdit('${item.id}')">수정</button>
+            <button class="danger" onclick="deleteItem('${item.id}')">삭제</button>
+          </div>
+          <div class="edit-box">
+            <textarea class="edit-textarea">${escapeHtml(item.content)}</textarea>
+            <div class="edit-save-row">
+              <button class="save" onclick="saveEdit('${item.id}')">저장</button>
+              <button class="cancel" onclick="toggleEdit('${item.id}')">취소</button>
+            </div>
+          </div>
         </li>
       `).join('');
+    }
+
+    function toggleEdit(id) {
+      const li = document.querySelector(`li[data-id="${id}"]`);
+      const editBox = li.querySelector('.edit-box');
+      const isOpening = !editBox.classList.contains('open');
+      editBox.classList.toggle('open', isOpening);
+      li.querySelectorAll('.view-mode').forEach(el => {
+        el.style.display = isOpening ? 'none' : '';
+      });
+    }
+
+    async function saveEdit(id) {
+      const li = document.querySelector(`li[data-id="${id}"]`);
+      const newContent = li.querySelector('.edit-textarea').value.trim();
+      if (!newContent) return;
+
+      const { error } = await supabaseClient
+        .from('suggestions')
+        .update({ content: newContent })
+        .eq('id', id);
+
+      if (error) {
+        showNotice('수정에 실패했어요: ' + error.message, 'err');
+        return;
+      }
+      showNotice('건의사항이 수정됐어요.', 'ok');
+      loadMySuggestions();
+    }
+
+    async function deleteItem(id) {
+      if (!confirm('이 건의사항을 삭제할까요? 되돌릴 수 없어요.')) return;
+
+      const { error } = await supabaseClient
+        .from('suggestions')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        showNotice('삭제에 실패했어요: ' + error.message, 'err');
+        return;
+      }
+      showNotice('삭제됐어요.', 'ok');
+      loadMySuggestions();
     }
 
     (async () => {
