@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>로그인 · 학교 건의함</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand"><span class="seal">함</span>학교 건의함</div>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow">Access</p>
+    <h1 class="title">로그인하고 건의하기</h1>
+    <p class="sub">계정으로 로그인하면 건의사항을 남길 수 있어요. 처음이라면 회원가입 탭을 눌러주세요.</p>
+
+    <div class="tabs">
+      <button id="tab-login" class="active" onclick="switchTab('login')">로그인</button>
+      <button id="tab-signup" onclick="switchTab('signup')">회원가입</button>
+    </div>
+
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <label for="login-email">이메일</label>
+      <input type="email" id="login-email" required placeholder="you@school.ac.kr" />
+      <label for="login-password">비밀번호</label>
+      <input type="password" id="login-password" required placeholder="비밀번호" />
+      <button type="submit" class="btn-seal" id="login-btn">로그인</button>
+    </form>
+
+    <form id="signup-form" onsubmit="handleSignup(event)" style="display:none;">
+      <label for="signup-email">이메일</label>
+      <input type="email" id="signup-email" required placeholder="you@school.ac.kr" />
+      <label for="signup-password">비밀번호 (6자 이상)</label>
+      <input type="password" id="signup-password" required minlength="6" placeholder="비밀번호" />
+      <button type="submit" class="btn-seal" id="signup-btn">회원가입</button>
+    </form>
+
+    <div id="notice"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    function switchTab(which) {
+      const isLogin = which === 'login';
+      document.getElementById('tab-login').classList.toggle('active', isLogin);
+      document.getElementById('tab-signup').classList.toggle('active', !isLogin);
+      document.getElementById('login-form').style.display = isLogin ? 'block' : 'none';
+      document.getElementById('signup-form').style.display = isLogin ? 'none' : 'block';
+      document.getElementById('notice').innerHTML = '';
+    }
+
+    function showNotice(message, type) {
+      document.getElementById('notice').innerHTML =
+        `<div class="notice ${type}">${message}</div>`;
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      btn.disabled = true; btn.textContent = '확인 중…';
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+      btn.disabled = false; btn.textContent = '로그인';
+      if (error) {
+        showNotice('로그인에 실패했어요: ' + error.message, 'err');
+        return;
+      }
+      window.location.href = 'write.html';
+    }
+
+    async function handleSignup(e) {
+      e.preventDefault();
+      const btn = document.getElementById('signup-btn');
+      btn.disabled = true; btn.textContent = '가입 중…';
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+
+      btn.disabled = false; btn.textContent = '회원가입';
+      if (error) {
+        showNotice('회원가입에 실패했어요: ' + error.message, 'err');
+        return;
+      }
+
+      if (data.session) {
+        window.location.href = 'write.html';
+      } else {
+        showNotice('가입이 완료됐어요. 이메일 인증 메일이 발송되었다면 확인 후 로그인해주세요. (Supabase에서 이메일 인증을 껐다면 바로 로그인 탭에서 로그인하세요.)', 'ok');
+        switchTab('login');
+      }
+    }
+
+    // 이미 로그인 되어 있으면 바로 메인으로
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) window.location.href = 'write.html';
+    })();
+  </script>
+</body>
+</html>
