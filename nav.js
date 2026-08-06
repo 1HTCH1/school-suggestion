@@ -21,7 +21,7 @@ function renderNav(activeKey, isAdmin) {
   const drawerHtml = `
     <div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
     <div class="nav-drawer" id="nav-drawer">
-      <div class="drawer-brand">${logoHtml()}한국나노마이스터고등학교 건의함</div>
+      <div class="drawer-brand">${logoHtml()}한국나노마이스터고 건의함</div>
       ${linksHtml}
       <hr class="drawer-divider" />
       <div class="drawer-footer">
